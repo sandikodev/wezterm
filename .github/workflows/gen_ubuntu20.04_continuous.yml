@@ -88,6 +88,12 @@ jobs:
       - name: "Install System Deps"
         shell: bash
         run: "env CI=yes PATH=$PATH ./get-deps"
+      - name: "Install gcc-10 and clang"
+        shell: bash
+        run: "apt-get install -y gcc-10 g++-10 clang"
+      - name: "Set CC to clang"
+        shell: bash
+        run: "echo 'CC=clang' >> $GITHUB_ENV"
       - name: "Build wezterm (Release mode)"
         shell: bash
         run: "cargo build -p wezterm --release"

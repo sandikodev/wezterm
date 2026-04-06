@@ -127,3 +127,33 @@ $ cargo test --all
 $ cargo fmt --all
 ```
 
+## CI Troubleshooting
+
+Sometimes CI builds fail due to infrastructure issues rather than code problems.
+
+### macOS - Apple Notary Agreement Expired
+
+```
+Error: HTTP status code: 403. A required agreement is missing or has expired.
+```
+
+This is an infrastructure issue with the maintainer's Apple Developer account.
+
+### Ubuntu - GCC Compiler Bug
+
+```
+### COMPILER BUG DETECTED ###
+Your compiler (cc) is not supported due to a memcmp related bug
+reported in https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189
+```
+
+This is due to an older GCC version on Ubuntu 20.04. Use clang instead.
+
+### Cirrus CI - GitHub Token Expired
+
+```
+HTTP 401: Bad credentials
+```
+
+The GITHUB_TOKEN in .cirrus.yml has expired.
+

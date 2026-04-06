@@ -118,3 +118,60 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: "bash ci/retry.sh gh release upload --clobber nightly WezTerm-*.zip WezTerm-*.exe *.sha256"
+      - name: "Checkout winget-pkgs"
+        uses: actions/checkout@v4
+        with:
+          repository: "microsoft/winget-pkgs"
+          path: "winget-pkgs"
+          token: "${{ secrets.GH_PAT }}"
+          fetch-depth: 0
+      - name: "Setup email for winget repo"
+        shell: bash
+        run: "cd winget-pkgs && git config user.email wez@wezfurlong.org"
+      - name: "Setup name for winget repo"
+        shell: bash
+        run: "cd winget-pkgs && git config user.name 'Wez Furlong'"
+      - name: "Compute Sha256 hash"
+        id: hash
+        shell: bash
+        run: |
+          echo "sha256=$(sha256sum -b WezTerm-*.exe | cut -f1 -d' ' | tr a-f A-F)" >> $GITHUB_OUTPUT
+      - name: "Update winget nightly manifest"
+        shell: bash
+        run: |
+          cd winget-pkgs
+          NIGHTLY_DIR="manifests/w/wez/wezterm.nightly"
+          if [ -d "$NIGHTLY_DIR" ]; then
+            cd "$NIGHTLY_DIR"
+            LATEST_VERSION=$(ls -1 | sort -r | head -1)
+            if [ -n "$LATEST_VERSION" ] && [ -f "$LATEST_VERSION/wez.wezterm.nightly.installer.yaml" ]; then
+              sed -i "s/InstallerSha256:.*/InstallerSha256: ${{ steps.hash.outputs.sha256 }}/" "$LATEST_VERSION/wez.wezterm.nightly.installer.yaml"
+              echo "Updated nightly manifest: $LATEST_VERSION"
+            fi
+          else
+            echo "No nightly manifest found"
+            exit 1
+          fi
+      - name: "Commit and push winget changes"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        shell: bash
+        run: |
+          cd winget-pkgs
+          git add --all
+          git diff --cached --quiet || git commit -m "wezterm nightly: update installer hash" || echo "No changes to commit"
+          git push origin master --quiet || echo "Push skipped - no changes"
+      - name: "Submit winget PR"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        shell: bash
+        run: |
+          cd winget-pkgs
+          if git diff --quiet; then
+            echo "No changes to push"
+          else
+            BRANCH="wezterm-nightly-$(date +%Y%m%d%H%M%S)"
+            git checkout -b "$BRANCH"
+            git push --set-upstream origin "$BRANCH" --quiet
+            gh pr create --fill --body "Auto-update wezterm nightly installer hash" --base master --repo Microsoft/winget-pkgs || echo "PR creation skipped or failed"
+          fi
